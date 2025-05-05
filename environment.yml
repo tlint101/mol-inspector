@@ -1,0 +1,11 @@
+name: mol-inspector
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python>=3.10
+  - pip
+  - pip:
+      - notebook==7.0.6
+      - shap
+      - exmol
