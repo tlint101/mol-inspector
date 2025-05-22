@@ -42,8 +42,8 @@ explainer_type = {
 
 class Inspector:
     def __init__(self,
-                 model: Union[str, BaseEstimator, KerasModel, XGBClassifier, XGBRegressor] = None,
-                 train_feats: Union[np.ndarray, pd.DataFrame] = None,
+                 model: Union[str, BaseEstimator, KerasModel, XGBClassifier, XGBRegressor],
+                 train_feats: Union[np.ndarray, pd.DataFrame],
                  model_type: str = "auto"):
         """
         Initiate the Inspector class.
@@ -72,19 +72,58 @@ class Inspector:
 
     def values(self, test_feats: Union[np.ndarray, pd.DataFrame]):
         """
-        Calculte SHAP values.
+        Calculate SHAP values.
         :param test_feats: Union[np.ndarray, pd.DataFrame]
             The dataset used for the model prediction. It can be either the test split or the prediction dataset.
         :return:
         """
-        return self.explainer.shap_values(test_feats)
+        values = self.explainer(test_feats)
+        return values
+
+    def to_df(self, shap_values, shap_type: str = "values"):
+        """
+        For users who want to create their own plots. The SHAP values can be converted into a pd.DataFrame. Several
+        options are available: 'values' - Main SHAP values for plotting/analysis, 'data' - input features, 'base values'
+        - the model's expected output, 'feature names' - names for feature input, and 'output names' for class output
+        labeling. Only values and data will output as pd.DataFrame.
+        data - original data passed into explainer
+        base_valeus - expected model output
+        :param shap_values:
+            Input calculated SHAP values.
+        :param shap_type: str
+            The type of SHAP values to output.
+        :return:
+        """
+
+        # available SHAP value types
+        value_types = {
+            "values": shap_values.values,
+            "data": shap_values.data,
+            "base values": shap_values.base_values,
+            "feature names": shap_values.feature_names,
+            "output names": shap_values.output_names
+        }
+
+        if shap_type == "base values" or shap_type == "feature names" or shap_type == "output names":
+            output = value_types.get(shap_type)
+        elif shap_type == "values" or shap_type == "data":
+            # get column name and values
+            names = self.train_feats.columns
+            values = value_types.get(shap_type)
+            # convert to pd.DataFrame
+            output = pd.DataFrame(values, columns=names)
+        else:
+            raise ValueError(
+                "shap_type incorrect. Only 'values', 'data', 'base values', 'feature names', 'output names' available!")
+
+        return output
 
     def _validate(self):
         """validate model"""
         if self.model is None:
-            raise ValueError("You must provide a trained model instance or a model path.")
+            raise ValueError("A trained model or a path to a saved model is needed!")
         if self.train_feats is None:
-            raise ValueError("Training features must be provided to initialize the SHAP explainer.")
+            raise ValueError("Training features must be provided!")
 
     def _choose_explainer(self):
         """pull explainer from the dictionary"""
