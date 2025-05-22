@@ -2,7 +2,8 @@
 plot methods
 """
 
-import shap
+import pandas as pd
+import matplotlib as mpl
 import seaborn as sns
 import matplotlib.pyplot as plt
 
@@ -15,61 +16,103 @@ class Plots:
         :param train_feats:
         :param test_feats:
         """
-        self.explanation = None
         self.shap_values = shap_values
         self.train_feats = train_feats
-        self.features = test_feats
+        self.test_feats = test_feats
 
-    def summary_plot(self, plot_type: str = None, **kwargs):
+    def summary_plot(self, max_display: int = 20, palette="coolwarm", alpha: float = 0.6, size: int = 4,
+                     jitter: float = 0.2, figsize: tuple = (8, 8), savefig: str = None, **kwargs):
         """
         Generate a summary plot of the mean SHAP value for the model output.
-        :param plot_type: str
-            Set the plot type.
-        :param kwargs:
-            The kwargs for shap.summary_plot()
         :return:
         """
-        values = self.shap_values
-        test_feats = self.features
-        shap.summary_plot(values, test_feats, plot_type=plot_type, **kwargs)
+
+        shap_df = self._to_df(self.shap_values)
+        train_feats_df = self._to_df(self.shap_values, shap_type="data")
+
+        # shap = self.shap_values.values
+        # train_feats = self.shap_values.data
+
+        # melt and combine dfs for plotting
+        shap_melt = shap_df.melt(var_name='Feature', value_name='SHAP value')
+        train_melt = train_feats_df.melt(var_name='Feature', value_name='Feature value')
+        combined = pd.concat([shap_melt, train_melt['Feature value']], axis=1)
+
+        # sort by feature importance (mean |SHAP|)
+        feat_order = shap_df.abs().mean().sort_values(ascending=False).index
+
+        # plot variables
+        title = "SHAP Summary"
+        x_title = "SHAP Value (Impact on Model Output)"
+        y_title = "Features"
+        legend_title = "Feature Value"
+
+        # plot
+        fig, ax = plt.subplots(figsize=figsize)
+        plt.grid(False)
+        ax = sns.stripplot(data=combined, x="SHAP value", y="Feature", hue='Feature value',
+                           order=feat_order[:max_display], palette=palette, dodge=False, alpha=alpha, size=size,
+                           jitter=jitter, **kwargs)
+
+        # # color bar
+        ax.get_legend().remove()
+        # normalize feature value
+        vmin = combined['Feature value'].min()
+        vmax = combined['Feature value'].max()
+        norm = plt.Normalize(vmin=vmin, vmax=vmax)
+
+        # apply palette
+        sm = plt.cm.ScalarMappable(cmap=palette, norm=norm)
+        sm.set_array([])  # Required for matplotlib to render colorbar
+
+        # add colorbar
+        cbar = ax.figure.colorbar(sm, ax=ax, orientation='vertical', pad=0.02)
+
+        # add low and high ticks
+        cbar.set_ticks([vmin, vmax])
+        cbar.set_ticklabels(['Low', 'High'])
+
+        # cbar labelsize
+        cbar.set_label("Feature Value", fontsize=10)
+        cbar.ax.tick_params(labelsize=10)
+
+        # plot features
+        plt.axvline(0.0, color='gray', linewidth=1, linestyle='--')  # line
+        plt.title(title, fontsize=18)
+        plt.xlabel(x_title, fontsize=14)
+        plt.ylabel(y_title, fontsize=14)
+        # plt.legend(title=legend_title, bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.tight_layout()
+        plt.show()
+        if savefig:
+            plt.savefig(savefig, dpi=300)
+        plt.close()
 
     def bar(self, index: int = None, bar_color: str = None, text_color: str = None, drop_sum: bool = False, **kwargs):
-        test_feats = self.features
+        pass
 
-        # convert to explination object
-        values = self.shap_values
-        explanation_value = self._convert_to_explanation(values)
+    def _to_df(self, shap_values, shap_type: str = "values"):
+        """
+        Support function to convert SHAP values into pd.DataFrame for plotting. Method is adapted from the method in
+        inspector.py
+        """
 
-        # for individual data row
-        if index:
-            explanation_value = explanation_value[0]
+        # available SHAP value types
+        value_types = {
+            "values": shap_values.values,
+            "data": shap_values.data,
+            "base values": shap_values.base_values,
+            "feature names": shap_values.feature_names,
+            "output names": shap_values.output_names
+        }
 
-        self.explanation = explanation_value
+        # get column name and values
+        names = self.train_feats.columns
+        values = value_types.get(shap_type)
+        # convert to pd.DataFrame
+        output = pd.DataFrame(values, columns=names)
 
-        # plot using shap
-        fig = shap.plots.bar(self.explanation, show=False, **kwargs)
-
-        # override shap plot to give control for color palette
-        ax = plt.gca()
-        for bar in ax.patches:
-            bar.set_color(bar_color)
-
-        for text in ax.texts:
-            text.set_color(text_color)
-        plt.show()
-
-    def force(self, index=0):
-        shap.plots.force(self.shap_values[index])
-
-    def _convert_to_explination(self, values):
-        explanation = shap.Explanation(
-            values=values,
-            base_values=None,  # optional, typically from explainer expected_value
-            data=self.train_feats.values,
-            feature_names=self.train_feats.columns.tolist()
-        )
-
-        return explanation
+        return output
 
 
 class MolInspector:
