@@ -12,7 +12,6 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
 from mol_inspector.utils import load_model
-import joblib
 import warnings
 
 import os
@@ -87,9 +86,10 @@ class Inspector:
         - the model's expected output, 'feature names' - names for feature input, and 'output names' for class output
         labeling. Only values and data will output as pd.DataFrame.
         data - original data passed into explainer
-        base_valeus - expected model output
+        base_values - expected model output
         :param shap_values:
-            Input calculated SHAP values.
+            Input calculated SHAP values. Can accept 'values', 'data', 'base values', 'feature names', or
+            'output names'.
         :param shap_type: str
             The type of SHAP values to output.
         :return:
@@ -143,12 +143,15 @@ class Inspector:
                 explainer_class = shap.KernelExplainer
                 warnings.warn("Using slow KernelExplainer fallback. Consider specifying a better model_type.")
                 return explainer_class(model_func, self.train_feats)
-        else:
+        # pull from explainers dict
+        elif self.model_type in explainers:
             explainer_class = explainers[self.model_type]
             if explainer_class in [shap.TreeExplainer, shap.Explainer]:
                 return explainer_class(self.model)
             else:
                 return explainer_class(model_func, self.train_feats)
+        else:
+            raise ValueError(f"Only 'auto', 'tree', 'permutation', 'kernel', 'deep', and 'gradient' are supported!")
 
 
 if __name__ == "__main__":
