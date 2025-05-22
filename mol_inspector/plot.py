@@ -4,7 +4,6 @@ plot methods
 
 import pandas as pd
 import numpy as np
-import matplotlib as mpl
 import seaborn as sns
 import matplotlib.pyplot as plt
 from typing import Union
@@ -46,20 +45,8 @@ class Plots:
             Additional seaborn plot options
         :return:
         """
-
-        shap_df = self._to_df(self.shap_values)
-        train_feats_df = self._to_df(self.shap_values, shap_type="data")
-
-        # shap = self.shap_values.values
-        # train_feats = self.shap_values.data
-
-        # melt and combine dfs for plotting
-        shap_melt = shap_df.melt(var_name='Feature', value_name='SHAP value')
-        train_melt = train_feats_df.melt(var_name='Feature', value_name='Feature value')
-        combined = pd.concat([shap_melt, train_melt['Feature value']], axis=1)
-
-        # sort by feature importance (mean |SHAP|)
-        feat_order = shap_df.abs().mean().sort_values(ascending=False).index
+        # process dataset
+        combined, feat_order = self._process_shap_values(shap_type="value")
 
         # plot variables
         title = "SHAP Summary"
@@ -93,7 +80,7 @@ class Plots:
         cbar.set_ticklabels(['Low', 'High'])
 
         # cbar labelsize
-        cbar.set_label("Feature Value", fontsize=10)
+        cbar.set_label(legend_title, fontsize=10)
         cbar.ax.tick_params(labelsize=10)
 
         # plot features
@@ -108,22 +95,58 @@ class Plots:
             plt.savefig(savefig, dpi=300)
         plt.close()
 
-    def bar(self, index: int = None, bar_color: str = None, text_color: str = None, drop_sum: bool = False, **kwargs):
+    #todo add customization for figure params
+    def bar(self, index: int = None, max_display: int = 10, label: bool = True,
+            figsize: tuple = (8, 8), savefig: str = None, **kwargs):
+        # process dataset
+        combined = self._process_shap_values(shap_type="mean")
+        combined = combined.head(max_display)
+
+        # plot variables
+        title = "SHAP Summary"
+        x_title = "SHAP Value (Impact on Model Output)"
+        y_title = "Features"
+        legend_title = "Feature Value"
+
+        # plot
+        fig, ax = plt.subplots(figsize=figsize)
+        plt.grid(False)
+        ax = sns.barplot(data=combined, x="Mean(SHAP Value)", y="Feature", color="steelblue",
+                         **kwargs)
+
+        # add label to bar
+        if label is True:
+            for i, (value, feature) in enumerate(zip(combined["Mean(SHAP Value)"], combined["Feature"])):
+                plot_label = f"+{value:.3f}" if value > 0 else f"{value:.3f}"
+                ax.text(value + 0.001, i, plot_label, va='center', fontsize=9)
+
+            # increase plot boarder
+            max_val = combined["Mean(SHAP Value)"].max()
+            plt.xlim(0, max_val * 1.15)
+
+        # Customize fonts
+        ax.set_title("SHAP Feature Importance", fontsize=16)
+        ax.set_xlabel("Mean |SHAP value|", fontsize=13)
+        ax.set_ylabel("Feature", fontsize=13)
+        plt.tight_layout()
+        plt.show()
+        if savefig:
+            plt.savefig(savefig, dpi=300)
+        plt.close()
+
+    def waterfall(self):
         pass
+
 
     def _to_df(self, shap_values, shap_type: str = "values"):
         """
         Support function to convert SHAP values into pd.DataFrame for plotting. Method is adapted from the method in
         inspector.py
         """
-
         # available SHAP value types
         value_types = {
             "values": shap_values.values,
             "data": shap_values.data,
-            "base values": shap_values.base_values,
-            "feature names": shap_values.feature_names,
-            "output names": shap_values.output_names
         }
 
         # get column name and values
@@ -133,6 +156,33 @@ class Plots:
         output = pd.DataFrame(values, columns=names)
 
         return output
+
+    def _process_shap_values(self, shap_type='value'):
+        """support function to process shap_values into data for plotting."""
+        # set SHAP and feature data
+        if shap_type == 'value':
+            shap_df = self._to_df(self.shap_values)
+            train_feats_df = self._to_df(self.shap_values, shap_type="data")
+            # melt and combine dfs for plotting
+            shap_melt = shap_df.melt(var_name='Feature', value_name='SHAP value')
+            train_melt = train_feats_df.melt(var_name='Feature', value_name='Feature value')
+            combined = pd.concat([shap_melt, train_melt['Feature value']], axis=1)
+            # sort by feature importance (mean |SHAP|)
+            feat_order = shap_df.abs().mean().sort_values(ascending=False).index
+            return combined, feat_order
+
+        # get mean of SHAP values
+        elif shap_type == 'mean':
+            shap_values = self.shap_values.values
+            feat_names = self.shap_values.feature_names
+            # calculate mean
+            mean = np.abs(shap_values).mean(axis=0)
+            # generate df and sort values
+            df = pd.DataFrame({"Feature": feat_names, "Mean(SHAP Value)": mean})
+            df = df.sort_values(by="Mean(SHAP Value)", ascending=False)
+            return df
+        else:
+            return None
 
 
 class MolInspector:
