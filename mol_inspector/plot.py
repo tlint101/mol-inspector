@@ -3,16 +3,20 @@ plot methods
 """
 
 import pandas as pd
+import numpy as np
 import matplotlib as mpl
 import seaborn as sns
 import matplotlib.pyplot as plt
+from typing import Union
 
 
 class Plots:
-    def __init__(self, shap_values, train_feats, test_feats):
+    def __init__(self, shap_values, train_feats: Union[np.ndarray, pd.DataFrame],
+                 test_feats: Union[np.ndarray, pd.DataFrame]):
         """
-
+        Initialize the Plots object. This requires three arguments.
         :param shap_values:
+            Input calculated SHAP values.
         :param train_feats:
         :param test_feats:
         """
@@ -20,10 +24,26 @@ class Plots:
         self.train_feats = train_feats
         self.test_feats = test_feats
 
-    def summary_plot(self, max_display: int = 20, palette="coolwarm", alpha: float = 0.6, size: int = 4,
+    def summary_plot(self, max_display: int = 20, palette: str = "coolwarm", alpha: float = 0.6, size: int = 4,
                      jitter: float = 0.2, figsize: tuple = (8, 8), savefig: str = None, **kwargs):
         """
         Generate a summary plot of the mean SHAP value for the model output.
+        :param max_display: int
+            Set the number of features to display. Features are ordered by SHAP value from most to least impactful.
+        :param palette: str
+            Set the color palette to use. Only color palettes available in seaborn are supported.
+        :param alpha: float
+            Set transparency of the plot.
+        :param size: float
+            set the size of the plot points.
+        :param jitter: float
+            set the amount of jitter.
+        :param figsize: tuple
+            Set the figure size of the plot.
+        :param savefig: str
+            Indicate path to save the image.
+        :param kwargs:
+            Additional seaborn plot options
         :return:
         """
 
