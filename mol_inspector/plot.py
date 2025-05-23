@@ -55,33 +55,14 @@ class Plots:
                            order=feat_order[:max_display], palette=palette, dodge=False, alpha=alpha, size=size,
                            jitter=jitter, **kwargs)
 
-        # # color bar
-        ax.get_legend().remove()
-        # normalize feature value
-        vmin = combined['Feature value'].min()
-        vmax = combined['Feature value'].max()
-        norm = plt.Normalize(vmin=vmin, vmax=vmax)
-
-        # apply palette
-        sm = plt.cm.ScalarMappable(cmap=palette, norm=norm)
-        sm.set_array([])  # Required for matplotlib to render colorbar
-
-        # add colorbar
-        cbar = ax.figure.colorbar(sm, ax=ax, orientation='vertical', pad=0.02)
-
-        # add low and high ticks
-        cbar.set_ticks([vmin, vmax])
-        cbar.set_ticklabels(['Low', 'High'])
-
-        # cbar labelsize
-        cbar.set_label("Feature Value", fontsize=10)
-        cbar.ax.tick_params(labelsize=10)
+        # set colorbar
+        self._set_colorbar(ax, combined, palette)
 
         # plot features
         plt.axvline(0.0, color='gray', linewidth=1, linestyle='--')  # line
-        plt.title("SHAP Summary", fontsize=18)
-        plt.xlabel("SHAP Value (Impact on Model Output)", fontsize=14)
-        plt.ylabel("Features", fontsize=14)
+        plt.title("SHAP Summary", fontsize=16)
+        plt.xlabel("SHAP Value (Impact on Model Output)", fontsize=13, labelpad=10)
+        plt.ylabel("Features", fontsize=13, labelpad=10)
         # plt.legend(title=legend_title, bbox_to_anchor=(1.05, 1), loc='upper left')
         plt.tight_layout()
         plt.show()
@@ -175,9 +156,32 @@ class Plots:
             plt.savefig(savefig, dpi=300)
         plt.close()
 
-    def scatterplot(self, index: int = 0, max_display: int = 10, color: list = ["steelblue", "brickorange"],
-                  label: bool = True, figsize: tuple = (8, 8), savefig: str = None, **kwargs):
-        pass
+    def scatterplot(self, feature: str, palette: str = "coolwarm", figsize: tuple = (8, 8), savefig: str = None,
+                    **kwargs):
+
+        shap_df = self._to_df(self.shap_values)  # SHAP values (DataFrame)
+        data_df = self._to_df(self.shap_values, "data")  # Feature values (DataFrame)
+
+        df = pd.DataFrame({
+            "Feature value": data_df[feature],
+            "SHAP value": shap_df[feature]
+        })
+
+        # plot
+        fig, ax = plt.subplots(figsize=figsize)
+        plt.grid(False)
+        ax = sns.scatterplot(data=df, x="Feature value", y="SHAP value", hue="Feature value", palette=palette,
+                             edgecolor=None, **kwargs)
+
+        self._set_colorbar(ax, df, palette)
+
+        plt.title(f"SHAP Values vs Input Value", fontsize=16)
+        plt.xlabel(f"Input Value for {feature}", fontsize=13, labelpad=10)
+        plt.ylabel(f"SHAP Value for {feature}", fontsize=13, labelpad=10)
+        plt.show()
+        if savefig:
+            plt.savefig(savefig, dpi=300)
+        plt.close()
 
     def _to_df(self, shap_values, shap_type: str = "values", index=None):
         """
@@ -229,6 +233,27 @@ class Plots:
             return df
         else:
             return None
+
+    @staticmethod
+    def _set_colorbar(ax, combined, palette):
+        """support function to set the colorbar"""
+        # color bar
+        ax.get_legend().remove()
+        # normalize feature value
+        vmin = combined['Feature value'].min()
+        vmax = combined['Feature value'].max()
+        norm = plt.Normalize(vmin=vmin, vmax=vmax)
+        # apply palette
+        sm = plt.cm.ScalarMappable(cmap=palette, norm=norm)
+        sm.set_array([])  # Required for matplotlib to render colorbar
+        # add colorbar
+        cbar = ax.figure.colorbar(sm, ax=ax, orientation='vertical', pad=0.02)
+        # add low and high ticks
+        cbar.set_ticks([vmin, vmax])
+        cbar.set_ticklabels(['Low', 'High'])
+        # cbar labelsize
+        cbar.set_label("Feature Value", fontsize=13)
+        cbar.ax.tick_params(labelsize=13)
 
 
 class MolInspector:
