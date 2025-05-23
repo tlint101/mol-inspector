@@ -89,11 +89,13 @@ class Plots:
             plt.savefig(savefig, dpi=300)
         plt.close()
 
-    def bar(self, max_display: int = 10, color: str = "steelblue", label: bool = True,
-            figsize: tuple = (8, 8), savefig: str = None, **kwargs):
+    def bar(self, index: int = None, max_display: int = 10, color: Union[str, list[str]] = "steelblue",
+            label: bool = True, figsize: tuple = (8, 8), savefig: str = None, **kwargs):
         """
         Generate a bar plot of the mean SHAP values for the models. Data will be argued from largest to lowest, with
         the top 10 features shown by default.
+        :param index: int
+            The index to view SHAP values for a specific query from the test set.
         :param max_display: int
             Set the number of features to be shown on the plot.
         :param color: str
@@ -109,39 +111,75 @@ class Plots:
         :return:
         """
         # process dataset
-        combined = self._process_shap_values(shap_type="mean")
-        combined = combined.head(max_display)
+        if index is not None:
+            combined, feat_order = self._process_shap_values(shap_type="value", index=index)
+            # get top features
+            top_features = feat_order[:max_display]
+            combined = combined[combined["Feature"].isin(top_features)].copy()
+            # sort by top features
+            combined["Feature"] = pd.Categorical(combined["Feature"], categories=top_features, ordered=True)
+            plot_data = combined.sort_values("Feature")
+        else:
+            combined = self._process_shap_values(shap_type="mean")
+            plot_data = combined.head(max_display)
 
         # plot
         fig, ax = plt.subplots(figsize=figsize)
         plt.grid(False)
-        ax = sns.barplot(data=combined, x="Mean(SHAP Value)", y="Feature", color=color,
-                         **kwargs)
+        if isinstance(color, str):
+            ax = sns.barplot(data=plot_data, x=plot_data.columns[1], y=plot_data.columns[0], color=color,
+                             **kwargs)
+        else:
+            # overwrite str color param
+            color = ["steelblue", "seagreen"]
+            # assign colors to negative/positive values
+            palette = [color[0] if v < 0 else color[1] for v in plot_data[plot_data.columns[1]]]
+            ax = sns.barplot(data=plot_data, x=plot_data.columns[1], y=plot_data.columns[0], hue=plot_data.columns[0],
+                             palette=palette, **kwargs)
+            plt.axvline(0.0, color='gray', linewidth=1, linestyle='--')  # line
 
         # add label to bar
+        label_list = []
         if label is True:
-            for i, (value, feature) in enumerate(zip(combined["Mean(SHAP Value)"], combined["Feature"])):
+            for i, (value, feature) in enumerate(zip(plot_data[plot_data.columns[1]], plot_data[plot_data.columns[0]])):
                 plot_label = f"+{value:.3f}" if value > 0 else f"{value:.3f}"
-                ax.text(value + 0.001, i, plot_label, va='center', fontsize=12)
+
+                # shift labels based on sign value
+                offset = 0.001 * (1 if value >= 0 else -1)  # small shift
+                ha_alignment = 'left' if value >= 0 else 'right'
+                # set text
+                ax.text(value + offset, i, plot_label,
+                        va='center', ha=ha_alignment, fontsize=12)
+                label_list.append(plot_label)
 
             # increase plot boarder
-            max_val = combined["Mean(SHAP Value)"].max()
-            plt.xlim(0, max_val * 1.15)
+            # check for negative number
+            if any("-" in x for x in label_list):
+                min_val = plot_data[plot_data.columns[1]].min()
+                max_val = plot_data[plot_data.columns[1]].max()
+                range_padding = 0.2 * max(abs(min_val), abs(max_val))
+                plt.xlim(min_val - range_padding if min_val < 0 else 0,
+                         max_val + range_padding if max_val > 0 else 0)
+            else:
+                # if all positive
+                max_val = plot_data[plot_data.columns[1]].max()
+                plt.xlim(0, max_val * 1.15)
 
         # Customize fonts
         ax.set_title("SHAP Feature Importance", fontsize=16)
-        ax.set_xlabel("Mean |SHAP value|", fontsize=13)
-        ax.set_ylabel("Feature", fontsize=13, labelpad=10)
+        ax.set_xlabel(plot_data.columns[1], fontsize=13, labelpad=10)
+        ax.set_ylabel(plot_data.columns[0], fontsize=13, labelpad=10)
         plt.tight_layout()
         plt.show()
         if savefig:
             plt.savefig(savefig, dpi=300)
         plt.close()
 
-    def waterfall(self):
+    def scatterplot(self, index: int = 0, max_display: int = 10, color: list = ["steelblue", "brickorange"],
+                  label: bool = True, figsize: tuple = (8, 8), savefig: str = None, **kwargs):
         pass
 
-    def _to_df(self, shap_values, shap_type: str = "values"):
+    def _to_df(self, shap_values, shap_type: str = "values", index=None):
         """
         Support function to convert SHAP values into pd.DataFrame for plotting. Method is adapted from the method in
         inspector.py
@@ -155,16 +193,21 @@ class Plots:
         # get column name and values
         names = self.train_feats.columns
         values = value_types.get(shap_type)
+
+        # slice values
+        if index is not None:
+            values = [values[index]]
+
         # convert to pd.DataFrame
         output = pd.DataFrame(values, columns=names)
 
         return output
 
-    def _process_shap_values(self, shap_type='value'):
+    def _process_shap_values(self, shap_type='value', index=None):
         """support function to process shap_values into data for plotting."""
         # set SHAP and feature data
         if shap_type == 'value':
-            shap_df = self._to_df(self.shap_values)
+            shap_df = self._to_df(self.shap_values, index=index)
             train_feats_df = self._to_df(self.shap_values, shap_type="data")
             # melt and combine dfs for plotting
             shap_melt = shap_df.melt(var_name='Feature', value_name='SHAP value')
