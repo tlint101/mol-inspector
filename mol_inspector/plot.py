@@ -7,6 +7,8 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 from typing import Union
+from rdkit import Chem
+from rdkit.Chem import AllChem, Draw, rdMolDescriptors, rdFingerprintGenerator
 
 
 class Plots:
@@ -257,9 +259,77 @@ class Plots:
 
 
 class MolInspector:
-    def __init__(self, smi: str = None):
+    def __init__(self, smi: str = None, fp_type: str = "morgan", n_bits: int = 2048, radius: int = 2,
+                 max_path: int = 7, chirality: bool = False):
         self.smi = smi
+        self.fp_type = fp_type
+        self.bit_info = self._generate_fp(smi=smi, fp_type=fp_type, n_bits=n_bits, radius=radius, max_path=max_path,
+                                          chirality=chirality)
 
+    def visualize_fp(self, bit_query, n_mols=3):
+        # Convert specific_bit to a list if it's not already a list
+        if bit_query is None:
+            raise ValueError("Need a bit query for molecular fingerprint!")
+        elif not isinstance(bit_query, list):
+            bit_query = [bit_query]
+        elif isinstance(bit_query, list):
+            pass
+        else:
+            raise ValueError("Maybe an issue with the bit_query?")
+
+        mol = Chem.MolFromSmiles(self.smi)
+
+        # Draw fingerprint bit. The tuple contains molecule, bit query, and bit information.
+        try:
+            if self.fp_type == "morgan":
+                tuple_info = [(mol, bit, self.bit_info) for bit in bit_query]
+                fig = Draw.DrawMorganBits(
+                    tuple_info,
+                    molsPerRow=n_mols,
+                    legends=[str(bit) for bit in bit_query],
+                )
+            elif self.fp_type == "rdkit":
+                tuple_info = [(mol, bit, self.bit_info) for bit in bit_query]
+                fig = Draw.DrawRDKitBits(
+                    tuple_info,
+                    molsPerRow=n_mols,
+                    legends=[str(bit) for bit in bit_query],
+                )
+            else:
+                return "Fuck!"
+        except:
+            raise ValueError("Issue with drawing molecule! Check bit_query and nBits!")
+
+        return fig
+
+    @staticmethod
+    def _generate_fp(smi, fp_type, n_bits, radius, max_path, chirality):
+        """Generate fp"""
+        # Convert smiles to rdkit mol
+        try:
+            mol = Chem.MolFromSmiles(smi)
+        except:
+            raise ValueError("SMILES input is not a valid SMILES string!")
+
+        # Generate molecular fingerprint
+        if fp_type == "morgan":
+            ao = AllChem.AdditionalOutput()
+            ao.CollectBitInfoMap()
+            fp_generator = rdFingerprintGenerator.GetMorganGenerator(radius=radius, fpSize=n_bits,
+                                                                     includeChirality=chirality)
+            fp_generator.GetFingerprint(mol, additionalOutput=ao)
+
+            # get bit info
+            bit_info = ao.GetBitInfoMap()
+            return bit_info
+        elif fp_type == "rdkit":
+            ao = {}
+            fp_generator = rdFingerprintGenerator.GetRDKitFPGenerator(fpSize=n_bits, maxPath=max_path)
+            fp_generator.GetFingerprint(mol, additionalOutput=ao)
+            bit_info = ao["bitPaths"]
+            return bit_info
+        else:
+            return None
 
 if __name__ == "__main__":
     import doctest
