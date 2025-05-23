@@ -40,19 +40,13 @@ class Plots:
         :param figsize: tuple
             Set the figure size of the plot.
         :param savefig: str
-            Indicate path to save the image.
+            Set the save path to save the image.
         :param kwargs:
             Additional seaborn plot options
         :return:
         """
         # process dataset
         combined, feat_order = self._process_shap_values(shap_type="value")
-
-        # plot variables
-        title = "SHAP Summary"
-        x_title = "SHAP Value (Impact on Model Output)"
-        y_title = "Features"
-        legend_title = "Feature Value"
 
         # plot
         fig, ax = plt.subplots(figsize=figsize)
@@ -80,14 +74,14 @@ class Plots:
         cbar.set_ticklabels(['Low', 'High'])
 
         # cbar labelsize
-        cbar.set_label(legend_title, fontsize=10)
+        cbar.set_label("Feature Value", fontsize=10)
         cbar.ax.tick_params(labelsize=10)
 
         # plot features
         plt.axvline(0.0, color='gray', linewidth=1, linestyle='--')  # line
-        plt.title(title, fontsize=18)
-        plt.xlabel(x_title, fontsize=14)
-        plt.ylabel(y_title, fontsize=14)
+        plt.title("SHAP Summary", fontsize=18)
+        plt.xlabel("SHAP Value (Impact on Model Output)", fontsize=14)
+        plt.ylabel("Features", fontsize=14)
         # plt.legend(title=legend_title, bbox_to_anchor=(1.05, 1), loc='upper left')
         plt.tight_layout()
         plt.show()
@@ -95,30 +89,40 @@ class Plots:
             plt.savefig(savefig, dpi=300)
         plt.close()
 
-    #todo add customization for figure params
-    def bar(self, index: int = None, max_display: int = 10, label: bool = True,
+    def bar(self, max_display: int = 10, color: str = "steelblue", label: bool = True,
             figsize: tuple = (8, 8), savefig: str = None, **kwargs):
+        """
+        Generate a bar plot of the mean SHAP values for the models. Data will be argued from largest to lowest, with
+        the top 10 features shown by default.
+        :param max_display: int
+            Set the number of features to be shown on the plot.
+        :param color: str
+            Set the color of the bar plot. Color can be given as a name or a hex color code.
+        :param label: bool
+            Annotate the plot with the mean SHAP value.
+        :param figsize: tuple
+            Set the figure size of the plot.
+        :param savefig: str
+            Set the save path for the figure.
+        :param kwargs:
+            Additional kwargs for seaborn plots.
+        :return:
+        """
         # process dataset
         combined = self._process_shap_values(shap_type="mean")
         combined = combined.head(max_display)
 
-        # plot variables
-        title = "SHAP Summary"
-        x_title = "SHAP Value (Impact on Model Output)"
-        y_title = "Features"
-        legend_title = "Feature Value"
-
         # plot
         fig, ax = plt.subplots(figsize=figsize)
         plt.grid(False)
-        ax = sns.barplot(data=combined, x="Mean(SHAP Value)", y="Feature", color="steelblue",
+        ax = sns.barplot(data=combined, x="Mean(SHAP Value)", y="Feature", color=color,
                          **kwargs)
 
         # add label to bar
         if label is True:
             for i, (value, feature) in enumerate(zip(combined["Mean(SHAP Value)"], combined["Feature"])):
                 plot_label = f"+{value:.3f}" if value > 0 else f"{value:.3f}"
-                ax.text(value + 0.001, i, plot_label, va='center', fontsize=9)
+                ax.text(value + 0.001, i, plot_label, va='center', fontsize=12)
 
             # increase plot boarder
             max_val = combined["Mean(SHAP Value)"].max()
@@ -127,7 +131,7 @@ class Plots:
         # Customize fonts
         ax.set_title("SHAP Feature Importance", fontsize=16)
         ax.set_xlabel("Mean |SHAP value|", fontsize=13)
-        ax.set_ylabel("Feature", fontsize=13)
+        ax.set_ylabel("Feature", fontsize=13, labelpad=10)
         plt.tight_layout()
         plt.show()
         if savefig:
@@ -136,7 +140,6 @@ class Plots:
 
     def waterfall(self):
         pass
-
 
     def _to_df(self, shap_values, shap_type: str = "values"):
         """
