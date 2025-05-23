@@ -260,11 +260,11 @@ class Plots:
 
 class MolInspector:
     def __init__(self, smi: str = None, fp_type: str = "morgan", n_bits: int = 2048, radius: int = 2,
-                 max_path: int = 7, chirality: bool = False):
+                 max_path: int = 7, chirality: bool = False, **kwargs):
         self.smi = smi
         self.fp_type = fp_type
         self.bit_info = self._generate_fp(smi=smi, fp_type=fp_type, n_bits=n_bits, radius=radius, max_path=max_path,
-                                          chirality=chirality)
+                                          chirality=chirality, **kwargs)
 
     def visualize_fp(self, bit_query, n_mols=3):
         # Convert specific_bit to a list if it's not already a list
@@ -296,14 +296,14 @@ class MolInspector:
                     legends=[str(bit) for bit in bit_query],
                 )
             else:
-                return "Fuck!"
+                return "Only 'morgan' or 'rdkit' fingerprints are supported!"
         except:
             raise ValueError("Issue with drawing molecule! Check bit_query and nBits!")
 
         return fig
 
     @staticmethod
-    def _generate_fp(smi, fp_type, n_bits, radius, max_path, chirality):
+    def _generate_fp(smi, fp_type, n_bits, radius, max_path, chirality, **kwargs):
         """Generate fp"""
         # Convert smiles to rdkit mol
         try:
@@ -323,13 +323,16 @@ class MolInspector:
             bit_info = ao.GetBitInfoMap()
             return bit_info
         elif fp_type == "rdkit":
-            ao = {}
-            fp_generator = rdFingerprintGenerator.GetRDKitFPGenerator(fpSize=n_bits, maxPath=max_path)
+            ao = AllChem.AdditionalOutput()
+            ao.CollectBitPaths()
+            fp_generator = rdFingerprintGenerator.GetRDKitFPGenerator(fpSize=n_bits, maxPath=max_path, **kwargs)
             fp_generator.GetFingerprint(mol, additionalOutput=ao)
-            bit_info = ao["bitPaths"]
+            bit_info = ao.GetBitPaths()
             return bit_info
+
         else:
-            return None
+            return f"Issue drawing {fp_type} bits!"
+
 
 if __name__ == "__main__":
     import doctest
