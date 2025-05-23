@@ -12,3 +12,4 @@ dependencies:
       - keras
       - xgboost
       - torch
+      - seaborn
