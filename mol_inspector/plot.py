@@ -72,12 +72,12 @@ class Plots:
             plt.savefig(savefig, dpi=300)
         plt.close()
 
-    def bar(self, index: int = None, max_display: int = 10, color: Union[str, list[str]] = "steelblue",
+    def bar(self, test_idx: int = None, max_display: int = 10, color: Union[str, list[str]] = "lightcoral",
             label: bool = True, figsize: tuple = (8, 8), savefig: str = None, **kwargs):
         """
         Generate a bar plot of the mean SHAP values for the models. Data will be argued from largest to lowest, with
         the top 10 features shown by default.
-        :param index: int
+        :param test_idx: int
             The index to view SHAP values for a specific query from the test set.
         :param max_display: int
             Set the number of features to be shown on the plot.
@@ -93,33 +93,34 @@ class Plots:
             Additional kwargs for seaborn plots.
         :return:
         """
-        # process dataset
-        if index is not None:
-            combined, feat_order = self._process_shap_values(shap_type="value", index=index)
+
+        # initiate plot
+        fig, ax = plt.subplots(figsize=figsize)
+        plt.grid(False)
+
+        # process dataset and plot
+        if test_idx is not None:
+            combined, feat_order = self._process_shap_values(shap_type="value", index=test_idx)
             # get top features
             top_features = feat_order[:max_display]
             combined = combined[combined["Feature"].isin(top_features)].copy()
             # sort by top features
             combined["Feature"] = pd.Categorical(combined["Feature"], categories=top_features, ordered=True)
             plot_data = combined.sort_values("Feature")
-        else:
-            combined = self._process_shap_values(shap_type="mean")
-            plot_data = combined.head(max_display)
-
-        # plot
-        fig, ax = plt.subplots(figsize=figsize)
-        plt.grid(False)
-        if isinstance(color, str):
-            ax = sns.barplot(data=plot_data, x=plot_data.columns[1], y=plot_data.columns[0], color=color,
-                             **kwargs)
-        else:
             # overwrite str color param
-            color = ["steelblue", "seagreen"]
+            color = ["lightcoral", "cadetblue"]
             # assign colors to negative/positive values
             palette = [color[0] if v < 0 else color[1] for v in plot_data[plot_data.columns[1]]]
+            #plot
             ax = sns.barplot(data=plot_data, x=plot_data.columns[1], y=plot_data.columns[0], hue=plot_data.columns[0],
                              palette=palette, **kwargs)
             plt.axvline(0.0, color='gray', linewidth=1, linestyle='--')  # line
+        else:
+            combined = self._process_shap_values(shap_type="mean")
+            plot_data = combined.head(max_display)
+            #plot
+            ax = sns.barplot(data=plot_data, x=plot_data.columns[1], y=plot_data.columns[0], color=color,
+                             **kwargs)
 
         # add label to bar
         label_list = []
