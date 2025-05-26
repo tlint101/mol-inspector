@@ -24,6 +24,7 @@ class Plots:
         self.shap_values = shap_values
         self.train_feats = train_feats
         self.test_feats = test_feats
+        self.dim_greater_than_2 = False
 
     def summary_plot(self, max_display: int = 20, palette: str = "coolwarm", alpha: float = 0.6, size: int = 4,
                      jitter: float = 0.2, figsize: tuple = (8, 8), savefig: str = None, **kwargs):
@@ -129,7 +130,7 @@ class Plots:
                 plot_label = f"+{value:.3f}" if value > 0 else f"{value:.3f}"
 
                 # shift labels based on sign value
-                offset = 0.001 * (1 if value >= 0 else -1)  # small shift
+                offset = 0.0001 * (1 if value >= 0 else -1)  # small shift
                 ha_alignment = 'left' if value >= 0 else 'right'
                 # set text
                 ax.text(value + offset, i, plot_label,
@@ -201,6 +202,11 @@ class Plots:
         names = self.train_feats.columns
         values = value_types.get(shap_type)
 
+        # if SHAP values is not 2D due to classification labels
+        if values.ndim == 3:
+            values = values[:, :, 1]
+            self.dim_greater_than_2 = True
+
         # slice values
         if index is not None:
             values = [values[index]]
@@ -228,8 +234,13 @@ class Plots:
         elif shap_type == 'mean':
             shap_values = self.shap_values.values
             feat_names = self.shap_values.feature_names
+
             # calculate mean
-            mean = np.abs(shap_values).mean(axis=0)
+            if self.dim_greater_than_2:
+                mean = np.abs(shap_values).mean(axis=(0, 2))
+            else:
+                mean = np.abs(shap_values).mean(axis=0)
+
             # generate df and sort values
             df = pd.DataFrame({"Feature": feat_names, "Mean(SHAP Value)": mean})
             df = df.sort_values(by="Mean(SHAP Value)", ascending=False)
@@ -311,6 +322,7 @@ class MolInspector:
             description="Select Bit:",
             style={"description_width": "initial"}
         )
+
         # wrapper method to draw bit
         def draw_bit(index):
             bit_query = index

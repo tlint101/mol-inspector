@@ -110,6 +110,9 @@ class Inspector:
             # get column name and values
             names = self.train_feats.columns
             values = value_types.get(shap_type)
+            # if SHAP values is not 2D due to classification labels
+            if values.ndim == 3:
+                values = values[:, :, 1]
             # convert to pd.DataFrame
             output = pd.DataFrame(values, columns=names)
         else:
