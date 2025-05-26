@@ -142,7 +142,7 @@ class Plots:
             if any("-" in x for x in label_list):
                 min_val = plot_data[plot_data.columns[1]].min()
                 max_val = plot_data[plot_data.columns[1]].max()
-                range_padding = 0.2 * max(abs(min_val), abs(max_val))
+                range_padding = 0.3 * max(abs(min_val), abs(max_val))
                 plt.xlim(min_val - range_padding if min_val < 0 else 0,
                          max_val + range_padding if max_val > 0 else 0)
             else:
