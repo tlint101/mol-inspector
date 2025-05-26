@@ -111,14 +111,14 @@ class Plots:
             color = ["lightcoral", "cadetblue"]
             # assign colors to negative/positive values
             palette = [color[0] if v < 0 else color[1] for v in plot_data[plot_data.columns[1]]]
-            #plot
+            # plot
             ax = sns.barplot(data=plot_data, x=plot_data.columns[1], y=plot_data.columns[0], hue=plot_data.columns[0],
                              palette=palette, **kwargs)
             plt.axvline(0.0, color='gray', linewidth=1, linestyle='--')  # line
         else:
             combined = self._process_shap_values(shap_type="mean")
             plot_data = combined.head(max_display)
-            #plot
+            # plot
             ax = sns.barplot(data=plot_data, x=plot_data.columns[1], y=plot_data.columns[0], color=color,
                              **kwargs)
 
@@ -287,14 +287,14 @@ class MolInspector:
                 fig = Draw.DrawMorganBits(
                     tuple_info,
                     molsPerRow=n_mols,
-                    legends=[str(bit) for bit in bit_query],
+                    legends=[str(f"Bit: {bit}") for bit in bit_query],
                 )
             elif self.fp_type == "rdkit":
                 tuple_info = [(mol, bit, self.bit_info) for bit in bit_query]
                 fig = Draw.DrawRDKitBits(
                     tuple_info,
                     molsPerRow=n_mols,
-                    legends=[str(bit) for bit in bit_query],
+                    legends=[str(f"Bit: {bit}") for bit in bit_query],
                 )
             else:
                 return "Only 'morgan' or 'rdkit' fingerprints are supported!"
@@ -302,6 +302,21 @@ class MolInspector:
             raise ValueError("Issue with drawing molecule! Check bit_query and nBits!")
 
         return fig
+
+    def render_bit(self):
+        """An interactive method to render query fingerprint bits. Only works in Jupyter Notebooks"""
+        from ipywidgets import widgets
+        dropdown = widgets.Dropdown(
+            options=self.bit_info.keys(),
+            description="Select Bit:",
+            style={"description_width": "initial"}
+        )
+        # wrapper method to draw bit
+        def draw_bit(index):
+            bit_query = index
+            return self.visualize_fp(bit_query=bit_query)
+
+        widgets.interact(draw_bit, index=dropdown)
 
     @staticmethod
     def _generate_fp(smi, fp_type, n_bits, radius, max_path, chirality, **kwargs):
