@@ -2,17 +2,15 @@
 Base methods.
 """
 
-from typing import Union, Optional
+from typing import Union
 import shap
 import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator
 from xgboost import XGBClassifier, XGBRegressor
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
+from sklearn.linear_model import LogisticRegression, LinearRegression
 from mol_inspector.utils import load_model
-import warnings
 
 import os
 
@@ -26,17 +24,26 @@ explainers = {
     "permutation": shap.PermutationExplainer,
     "deep": shap.DeepExplainer,
     "gradient": shap.GradientExplainer,
-    "kernel": shap.KernelExplainer
+    "kernel": shap.KernelExplainer,
+    "linear": shap.LinearExplainer,
 }
 
-explainer_type = {
-    shap.Explainer: "Auto",
-    shap.TreeExplainer: "Tree Explainer",
-    shap.PermutationExplainer: "Permutation Explainer",
-    shap.DeepExplainer: "Deep Explainer",
-    shap.GradientExplainer: "Gradient Explainer",
-    shap.KernelExplainer: "Kernel Explainer"
-}
+
+def _get_explainer_type(explainer):
+    if isinstance(explainer, shap.TreeExplainer):
+        return "Tree Explainer"
+    elif isinstance(explainer, shap.PermutationExplainer):
+        return "Permutation Explainer"
+    elif isinstance(explainer, shap.DeepExplainer):
+        return "Deep Explainer"
+    elif isinstance(explainer, shap.GradientExplainer):
+        return "Gradient Explainer"
+    elif isinstance(explainer, shap.KernelExplainer):
+        return "Kernel Explainer"
+    elif isinstance(explainer, shap.LinearExplainer):
+        return "Linear Explainer"
+    else:
+        return "Unknown (possibly auto-generated)"
 
 
 class Inspector:
@@ -67,7 +74,9 @@ class Inspector:
         self.explainer = self._choose_explainer()
 
         # signify which explainer is pulled
-        print(f"Inspector Initialized {explainer_type.get(type(self.explainer), str(type(self.explainer)))}")
+        print(f"Inspector Initialized", _get_explainer_type(self.explainer))
+        if isinstance(self.explainer, shap.PermutationExplainer):
+            print("Permutation Explainer may take a while...")
 
     def values(self, test_feats: Union[np.ndarray, pd.DataFrame]):
         """
@@ -136,16 +145,13 @@ class Inspector:
 
         # pull shap.Explainer depending on the model type.
         if self.model_type == "auto":
-            if isinstance(self.model, (XGBClassifier, XGBRegressor, RandomForestClassifier)):
-                explainer_class = shap.TreeExplainer
-                return explainer_class(self.model)
-            elif isinstance(self.model, (KerasModel, KNeighborsClassifier, KNeighborsRegressor, LogisticRegression)):
-                explainer_class = shap.PermutationExplainer
-                return explainer_class(model_func, self.train_feats)
+            # if models are tree/logistic regression
+            if isinstance(self.model,
+                          (XGBClassifier, XGBRegressor, RandomForestClassifier, LogisticRegression, LinearRegression)):
+                return shap.Explainer(self.model, self.train_feats)
             else:
-                explainer_class = shap.KernelExplainer
-                warnings.warn("Using slow KernelExplainer fallback. Consider specifying a better model_type.")
-                return explainer_class(model_func, self.train_feats)
+                return shap.Explainer(model_func, self.train_feats, max_evals="auto")
+
         # pull from explainers dict
         elif self.model_type in explainers:
             explainer_class = explainers[self.model_type]
@@ -154,7 +160,8 @@ class Inspector:
             else:
                 return explainer_class(model_func, self.train_feats)
         else:
-            raise ValueError(f"Only 'auto', 'tree', 'permutation', 'kernel', 'deep', and 'gradient' are supported!")
+            raise ValueError(
+                f"Only 'auto', 'tree', 'permutation', 'kernel', 'deep', 'linear', and 'gradient' are supported!")
 
 
 if __name__ == "__main__":
