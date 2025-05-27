@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "mol-inspector"
+version = "0.0.1"
+description = "Inspect Molecular ML Models Using SHAP"
+authors = ["Tony Eight Lin <tonyelin@tmu.edu.tw>"]
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/tlint101/mol-inspector.git"
+packages = [{ include = "mol_inspector" }]
+
+[tool.poetry.dependencies]
+python = ">= 3.10"
+notebook = "7.0.6"
+ipywidgets = ">=8.1.7"
+shap = ">=0.47.2"
+keras = ">=3.0.0"
+xgboost = ">=3.0.0"
+torch = ">=2.7.0"
+seaborn = ">=0.13.0"
+rdkit = ">=2024.3.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
