@@ -7,9 +7,11 @@ dependencies:
   - pip
   - pip:
       - notebook==7.0.6
+      - ipywidgets
       - shap
-      - exmol
       - keras
       - xgboost
       - torch
       - seaborn
+      - rdkit
+#      - exmol # for future use
